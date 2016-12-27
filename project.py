@@ -6,9 +6,9 @@
 # Project 2: Object Recognition
 #
 # Authors:
+#	* Katja Hader up201602072
 #	* Nuno Granja Fernandes up201107699
 #	* Samuel Arleo Rodriguez up201600802
-#	* Katja Hader up201602072
 ##################################################################################################################
 
 import numpy as np
@@ -53,6 +53,26 @@ def load_labels(data):
 		print "Error opening the file ",data,".Please check the file location."
 		exit()
 
+def join_desc(data):
+	# Data has the columns |Keypoint|Descriptors| and each row represent a keypoint
+	# tmp stores just the descriptors
+	tmp = [res[i][1] for i in range(0,len(res)) if res[i][1] is not None]
+	# Getting descriptors size (all have the same given by SIFT: 128)
+	desc_size = tmp[0][0].shape[0]
+	# Counting number of descriptors
+	num_desc = 0
+	for img in tmp:
+		for desc in img:
+			num_desc += 1
+	# Storing descriptors in des, but before we create it empty with the correct dimensions: [num_desc,128]
+	des = np.zeros((num_desc,desc_size))
+	n = 0
+	for img in tmp:
+		for desc in img:
+			des[n,:] = desc
+			n += 1
+	return des
+
 #----------------------- LOADING DATA --------------------------
 # Paths to the training and test data
 train_imgs = "/home/samuel/CV2/train_data/"
@@ -73,25 +93,17 @@ labels_tr = load_labels(train_labels)
 sift = cv2.xfeatures2d.SIFT_create()
 
 # Applying SIFT to all training images. This returns the tuple (keypoints, descriptor)
-# for each image, and it's converted to a matrix with columns:
+# for each image, and it's transformed to a matrix with columns:
 # |Keypoints| Descriptors|
 res = map(lambda x: sift.detectAndCompute(x, None), images_tr)
 
-res = np.array(res,dtype=object)
-
-# Storing all keypoints (pixels coordinates of keepoints) in a single variable
-kp = res[:,0]
-
 # Storing all descriptor in a single variable to cluster them
-des = res[:,1]
-
-"""
-des = np.array(res[:,1],dtype=object)
-des = map(lambda x: x.reshape(1,-1) if res[i,1] is not None else ,des)
+desc = join_desc(res)
 
 # Initiate kNN, train the data, then test it with test data for k=1
 #print(labels_tr.shape,des.shape)
 #------------------- REPRESENTATION STEP -----------------------
+des = [res[i][1] for i in range(0,)]
 
 
 #------------------- CLASSIFYING IMAGES ------------------------
