@@ -15,35 +15,91 @@ import numpy as np
 import cv2
 from os import listdir
 from os.path import isfile, join
+import csv
+import classification, representation, featurex
 
-# Path to the training data
-path = "/home/samuel/CV2/Data2/"
+"""
+def resize(des):
+	counter = 0
+	for i in des.shape[0]:
+		if des[i] is not None:
+			des[i] = des[i].reshape(1,-1)
+			counter += 1
+	np.array()
+	return 
+"""
 
-# Creating a list with all pictures names
-onlyfiles = [ f for f in listdir(path) if isfile(join(path,f)) ]
+def load_images(data):
+	try:
+		# Creating a list with all pictures names
+		onlyfiles = [ f for f in listdir(data) if isfile(join(data,f)) ][:limit]
+		images = np.empty(len(onlyfiles), dtype=object)
+		# Reading each image and storing it into the images array
+		for n in range(0, len(onlyfiles)):
+			images[n] = cv2.imread(join(data,onlyfiles[n]))
+		# Changing all images to grayscale
+		return map(lambda x: cv2.cvtColor(x,cv2.COLOR_BGR2GRAY),images)
+	except:
+		print "Error opening the folder ",data,".Please check the file location."
+		exit()
 
-# Creating a numpy empty array with length = amount of images
-images = np.empty(len(onlyfiles), dtype=object)
+def load_labels(data):
+	try:
+		labels = np.genfromtxt(data, delimiter=',',dtype=[('id','<i8'),('label','|S5')], skip_header=1)
+		labels = map(lambda (x,y):[y], labels) 	# Taking out image ids. We don't need the label id 
+											   	# because it is implicit in the position in the list
+		return np.asarray(labels)[:limit,:] 	# It is a list of tuples and we need it as an array of arrays
+	except:
+		print "Error opening the file ",data,".Please check the file location."
+		exit()
 
-# Reading each image and storing them into the images array
-for n in range(0, len(onlyfiles)):
-	images[n] = cv2.imread(join(path,onlyfiles[n]))
+#----------------------- LOADING DATA --------------------------
+# Paths to the training and test data
+train_imgs = "/home/samuel/CV2/train_data/"
+test_imgs = "/home/samuel/CV2/test_data/"
 
-# Changing all images to grayscale
-grays = map(lambda x: cv2.cvtColor(x,cv2.COLOR_BGR2GRAY),images)
+# File with labels of training images
+train_labels = "labels_train.csv"
 
+# Using a subset of the images set
+limit = 1000
+
+# Loading training images and labels
+images_tr = load_images(train_imgs)
+labels_tr = load_labels(train_labels)
+
+#------------------- EXTRACTING FEATURES -----------------------
 # Instantiating sift class
 sift = cv2.xfeatures2d.SIFT_create()
 
 # Applying SIFT to all training images. This returns the tuple (keypoints, descriptor)
 # for each image, and it's converted to a matrix with columns:
 # |Keypoints| Descriptors|
-res = np.asarray(map(lambda x: sift.detectAndCompute(x, None), grays))
+res = map(lambda x: sift.detectAndCompute(x, None), images_tr)
+
+res = np.array(res,dtype=object)
 
 # Storing all keypoints (pixels coordinates of keepoints) in a single variable
 kp = res[:,0]
+
 # Storing all descriptor in a single variable to cluster them
 des = res[:,1]
 
+"""
+des = np.array(res[:,1],dtype=object)
+des = map(lambda x: x.reshape(1,-1) if res[i,1] is not None else ,des)
+
+# Initiate kNN, train the data, then test it with test data for k=1
+#print(labels_tr.shape,des.shape)
+#------------------- REPRESENTATION STEP -----------------------
+
+
+#------------------- CLASSIFYING IMAGES ------------------------
+
+knn = cv2.ml.KNearest_create()
+knn.train(des,cv2.ml.ROW_SAMPLE,labels_tr)
+#knn.train(des,cv2.ml.ROW_SAMPLE,labels_tr)
+#ret,result,neighbours,dist = knn.find_nearest(test,k=5)
+
 #img=cv2.drawKeypoints(gray,kp,img,flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-#cv2.imwrite('sift_keypoints.jpg',img)
+#cv2.imwrite('sift_keypoints.jpg',img)"""
