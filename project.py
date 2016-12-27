@@ -17,6 +17,7 @@ from os import listdir
 from os.path import isfile, join
 import csv
 import classification, representation, featurex
+import time
 
 """
 def resize(des):
@@ -100,18 +101,25 @@ res = map(lambda x: sift.detectAndCompute(x, None), images_tr)
 # Storing all descriptor in a single variable to cluster them
 desc = join_desc(res)
 
-# Initiate kNN, train the data, then test it with test data for k=1
-#print(labels_tr.shape,des.shape)
+# Changing type to float32 which is required by the kmeans function
+desc = desc.astype('float32')
+criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+
+start = time.time()
+ret,label,center=cv2.kmeans(desc,250,None,criteria,4,cv2.KMEANS_RANDOM_CENTERS)
+end = time.time()
+print(end - start)
 #------------------- REPRESENTATION STEP -----------------------
-des = [res[i][1] for i in range(0,)]
+
+
 
 
 #------------------- CLASSIFYING IMAGES ------------------------
-
-knn = cv2.ml.KNearest_create()
-knn.train(des,cv2.ml.ROW_SAMPLE,labels_tr)
+# Initiate kNN, train the data, then test it with test data for k=1
+#knn = cv2.ml.KNearest_create()
+#knn.train(des,cv2.ml.ROW_SAMPLE,labels_tr)
 #knn.train(des,cv2.ml.ROW_SAMPLE,labels_tr)
 #ret,result,neighbours,dist = knn.find_nearest(test,k=5)
 
 #img=cv2.drawKeypoints(gray,kp,img,flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-#cv2.imwrite('sift_keypoints.jpg',img)"""
+#cv2.imwrite('sift_keypoints.jpg',img)
