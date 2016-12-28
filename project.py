@@ -19,42 +19,61 @@ import csv
 import classification, representation, featurex
 import time
 
-"""
-def resize(des):
-	counter = 0
-	for i in des.shape[0]:
-		if des[i] is not None:
-			des[i] = des[i].reshape(1,-1)
-			counter += 1
-	np.array()
-	return 
-"""
+class descriptor:
+	def __init__(self, vector=None, label=None):
+		self.vector = vector
+		self.label = label
 
-def load_images(data):
-	try:
-		# Creating a list with all pictures names
-		onlyfiles = [ f for f in listdir(data) if isfile(join(data,f)) ][:limit]
-		images = np.empty(len(onlyfiles), dtype=object)
-		# Reading each image and storing it into the images array
-		for n in range(0, len(onlyfiles)):
-			images[n] = cv2.imread(join(data,onlyfiles[n]))
-		# Changing all images to grayscale
-		return map(lambda x: cv2.cvtColor(x,cv2.COLOR_BGR2GRAY),images)
-	except:
-		print "Error opening the folder ",data,".Please check the file location."
-		exit()
+class image:
+	def __init__(self, img=None, keyp=None, desc=None, hist=None):
+		self.img = img
+		self.id = None
+		self.label = None
+		self.desc = desc
+		self.keyp = keyp
+		self.histogram = hist
 
-def load_labels(data):
-	try:
-		labels = np.genfromtxt(data, delimiter=',',dtype=[('id','<i8'),('label','|S5')], skip_header=1)
-		labels = map(lambda (x,y):[y], labels) 	# Taking out image ids. We don't need the label id 
-											   	# because it is implicit in the position in the list
-		return np.asarray(labels)[:limit,:] 	# It is a list of tuples and we need it as an array of arrays
-	except:
-		print "Error opening the file ",data,".Please check the file location."
-		exit()
+class images_set:
+	def __init__(self, path_img=None, path_lab=None):
+		self.images = None
+		self.path_img = path_img
+		self.path_lab = path_lab
 
-def join_desc(data):
+	def load_images(self,limit):
+		try:
+			# Creating a list with all pictures names
+			onlyfiles = [ f for f in listdir(self.path_img) if isfile(join(self.path_img,f)) ][:limit]
+			self.images = np.empty(len(onlyfiles), dtype=object)
+			# Reading each image and storing it into the images array
+			for n in range(0, len(onlyfiles)):
+				self.images[n] = image(cv2.imread(join(self.path_img,onlyfiles[n]),0))
+		except:
+			print "Error opening the folder ",self.path_img,".Please check the file location."
+			exit()
+
+	def load_labels(self,limit):
+		try:
+			# Loading labels into an matrix with columns |id|label|
+			labels = np.genfromtxt(self.path_lab, delimiter=',',dtype=[('id','<i8'),('label','|S5')], skip_header=1)
+		except:
+			print "Error opening the file ",self.path_lab,".Please check the file location."
+			exit()
+		img = 0
+		# Adding id and label to each image
+		for (x,y) in labels:
+			self.images[img].id = x
+			self.images[img].label = y
+			if img == limit-1:
+				break
+			img += 1
+
+	def getFeatures(self, features):
+		print(len(features))
+		for i in range(0,len(features)):
+			self.images[i].desc = descriptor(features[i][1])
+			self.images[i].keyp = features[i][0]
+
+def join_desc(res):
 	# Data has the columns |Keypoint|Descriptors| and each row represent a keypoint
 	# tmp stores just the descriptors
 	tmp = [res[i][1] for i in range(0,len(res)) if res[i][1] is not None]
@@ -75,30 +94,42 @@ def join_desc(data):
 	return des
 
 #----------------------- LOADING DATA --------------------------
+
 # Paths to the training and test data
-train_imgs = "/home/samuel/CV2/train_data/"
-test_imgs = "/home/samuel/CV2/test_data/"
+path_train_imgs = "/home/samuel/CV2/train_data/"
+path_test_imgs = "/home/samuel/CV2/test_data/"
 
 # File with labels of training images
-train_labels = "labels_train.csv"
+train_labels = "/home/samuel/CV2/labels_train.csv"
+test_labels = ""
 
 # Using a subset of the images set
 limit = 1000
 
-# Loading training images and labels
-images_tr = load_images(train_imgs)
-labels_tr = load_labels(train_labels)
+# Creating object images_set that encapsulates methods for loading images and labels,
+# and also stores the loaded images and labels
+trainSet = images_set(path_train_imgs, train_labels)
+
+# Loading limit-number of images 
+trainSet.load_images(limit)
+
+# Loading labels of previously loaded pictures
+trainSet.load_labels(limit)
 
 #------------------- EXTRACTING FEATURES -----------------------
+
 # Instantiating sift class
 sift = cv2.xfeatures2d.SIFT_create()
 
 # Applying SIFT to all training images. This returns the tuple (keypoints, descriptor)
 # for each image, and it's transformed to a matrix with columns:
 # |Keypoints| Descriptors|
-res = map(lambda x: sift.detectAndCompute(x, None), images_tr)
+res = map(lambda x: sift.detectAndCompute(x.img, None), trainSet.images)
 
-# Storing all descriptor in a single variable to cluster them
+# Storing each descriptor and keypoint with its image
+trainSet.getFeatures(res)
+
+# Storing all descriptors in a single variable to cluster them
 desc = join_desc(res)
 
 # Changing type to float32 which is required by the kmeans function
@@ -109,6 +140,7 @@ start = time.time()
 ret,label,center=cv2.kmeans(desc,250,None,criteria,4,cv2.KMEANS_RANDOM_CENTERS)
 end = time.time()
 print(end - start)
+
 #------------------- REPRESENTATION STEP -----------------------
 
 
