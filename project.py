@@ -68,29 +68,33 @@ class images_set:
 				break
 			img += 1
 
+	# Gets the list of descriptors (not descriptor objects yet) and returns a list of desc. objects
+	# that have the actual descriptor in the vector attribute
 	def build_desc(self, desc_list):
 		return map(lambda x: descriptor(x), desc_list)
 
-	# Assings descriptors and keypoints to the correspondent image
+	# Assings descriptors and keypoints to their correspondent image
+	# Args: features contains pairs of |Keypoints| Descriptors|
 	def get_features(self, features):
 		for i in range(0,len(features)):
-			if features[i][1] is not None:
-				self.images[i].desc = self.build_desc(features[i][1])
+			if features[i][1] is not None: 								# To discard pictures without keypoints
+				self.images[i].desc = self.build_desc(features[i][1])	# Assign to each image a list of desc. objects
 				self.images[i].keyp = features[i][0]
 
+	# Computes the histogram of each image and assigns the label to each descriptor
 	def set_descr_labels(self,labels,desc_size):
 		index = 0
-		for img in self.images:
-			img.histogram = np.zeros(desc_size, dtype=object)
-			if img.desc is not None:		# Discard images without keypoints
-				for desc in img.desc:
-					label = labels[index][0]
-					desc.label = label
-					img.histogram[label] += 1
-					index += 1
+		for img in self.images: 										# For each image in the set
+			img.histogram = np.zeros(desc_size, dtype=object) 			# Initializes the histogram vector (250 words so far)
+			if img.desc is not None:									# Discard images without keypoints
+				for desc in img.desc:									# For each descriptor on each image
+					label = labels[index][0]							# Stores the label of the current descriptor
+					desc.label = label 									# Assigns to the descriptor its label
+					img.histogram[label] += 1 							# Adds 1 to the element in the position of the
+					index += 1											# label value. Ej label = 3, histogram[3] += 1
 
 def join_desc(res):
-	# Data has the columns |Keypoint|Descriptors| and each row represent a keypoint
+	# res has columns |Keypoint|Descriptors| and each row represent a keypoint
 	# tmp stores just the descriptors
 	tmp = [res[i][1] for i in range(0,len(res)) if res[i][1] is not None]
 	# Getting descriptors size (all have the same given by SIFT: 128)
@@ -100,7 +104,7 @@ def join_desc(res):
 	for img in tmp:
 		for desc in img:
 			num_desc += 1
-	# Storing descriptors in des, but before we create it empty with the correct dimensions: [num_desc,128]
+	# Storing descriptors in des, but before we initialze it empty with the right dimensions: [num_desc,128]
 	des = np.zeros((num_desc,desc_size))
 	n = 0
 	for img in tmp:
@@ -163,8 +167,8 @@ ret,label,center=cv2.kmeans(desc,words_number,None,criteria,4,cv2.KMEANS_RANDOM_
 end = time.time()
 print(end - start)
 
+#------------------- REPRESENTATION STEP -----------------------
 
-print(label,label.shape)
 # Giving a label to each descriptor. Also passing size of descriptors: desc[0].shape[0]
 trainSet.set_descr_labels(label, words_number)
 
@@ -172,8 +176,6 @@ trainSet.set_descr_labels(label, words_number)
 # a = trainSet.images[0]
 #print(a.histogram)
 #print(a.desc[2].label)
-
-#------------------- REPRESENTATION STEP -----------------------
 
 
 
