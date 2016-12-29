@@ -54,7 +54,8 @@ class images_set:
 	def load_labels(self,limit):
 		try:
 			# Loading labels into an matrix with columns |id|label|
-			labels = np.genfromtxt(self.path_lab, delimiter=',',dtype=[('id','<i8'),('label','|S5')], skip_header=1)
+			labels = np.genfromtxt(self.path_lab, delimiter=',',
+				dtype=[('id','<i8'),('label','|S5')], skip_header=1)
 		except:
 			print "Error opening the file ",self.path_lab,".Please check the file location."
 			exit()
@@ -67,11 +68,26 @@ class images_set:
 				break
 			img += 1
 
-	def getFeatures(self, features):
-		print(len(features))
+	def build_desc(self, desc_list):
+		return map(lambda x: descriptor(x), desc_list)
+
+	# Assings descriptors and keypoints to the correspondent image
+	def get_features(self, features):
 		for i in range(0,len(features)):
-			self.images[i].desc = descriptor(features[i][1])
-			self.images[i].keyp = features[i][0]
+			if features[i][1] is not None:
+				self.images[i].desc = self.build_desc(features[i][1])
+				self.images[i].keyp = features[i][0]
+
+	def set_descr_labels(self,labels,desc_size):
+		index = 0
+		for img in self.images:
+			img.histogram = np.zeros(desc_size, dtype=object)
+			if img.desc is not None:		# Discard images without keypoints
+				for desc in img.desc:
+					label = labels[index][0]
+					desc.label = label
+					img.histogram[label] += 1
+					index += 1
 
 def join_desc(res):
 	# Data has the columns |Keypoint|Descriptors| and each row represent a keypoint
@@ -127,7 +143,7 @@ sift = cv2.xfeatures2d.SIFT_create()
 res = map(lambda x: sift.detectAndCompute(x.img, None), trainSet.images)
 
 # Storing each descriptor and keypoint with its image
-trainSet.getFeatures(res)
+trainSet.get_features(res)
 
 # Storing all descriptors in a single variable to cluster them
 desc = join_desc(res)
@@ -136,10 +152,26 @@ desc = join_desc(res)
 desc = desc.astype('float32')
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
 
+# Number of cluster that will set the number of words of each bag
+words_number = 250
+
 start = time.time()
-ret,label,center=cv2.kmeans(desc,250,None,criteria,4,cv2.KMEANS_RANDOM_CENTERS)
+
+# Apllying k-means to all the descriptors
+ret,label,center=cv2.kmeans(desc,words_number,None,criteria,4,cv2.KMEANS_RANDOM_CENTERS)
+
 end = time.time()
 print(end - start)
+
+
+print(label,label.shape)
+# Giving a label to each descriptor. Also passing size of descriptors: desc[0].shape[0]
+trainSet.set_descr_labels(label, words_number)
+
+# To try it uncomment:
+# a = trainSet.images[0]
+#print(a.histogram)
+#print(a.desc[2].label)
 
 #------------------- REPRESENTATION STEP -----------------------
 
